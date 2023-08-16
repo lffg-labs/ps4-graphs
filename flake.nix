@@ -13,14 +13,29 @@
       pkgs = import nixpkgs {
         inherit system;
       };
+      clang-tool = {
+        name,
+        flags ? "",
+        extra-args ? "",
+      }:
+        pkgs.writeShellScriptBin name ''
+          ${pkgs.clang-tools_16}/bin/${name} ${flags} "$@" ${extra-args}
+        '';
     in {
       devShells.default = pkgs.mkShell {
         name = "graphs";
 
         packages = with pkgs; [
           gnumake
+          (clang-tool {
+            name = "clang-tidy";
+            extra-args =
+              if stdenv.isDarwin
+              then "-- -I${pkgs.darwin.Libsystem}"
+              else "";
+          })
+          (clang-tool {name = "clang-format";})
           clang_16
-          clang-tools_16
         ];
       };
     });

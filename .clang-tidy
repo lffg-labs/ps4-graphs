@@ -1,0 +1,19 @@
+Checks: >
+    -*,
+    boost-*,
+    clang-analyzer-*,
+    concurrency-*,
+    modernize-*,
+    performance-*,
+    readability-*,
+    bugprone-*,
+    misc-*,
+    -bugprone-easily-swappable-parameters,
+    -readability-identifier-length,
+    -readability-suspicious-call-argument,
+    -misc-no-recursion
+
+CheckOptions:
+  misc-const-correctness.WarnPointersAsValues: true
+  misc-const-correctness.TransformPointersAsValues: true
+  misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
