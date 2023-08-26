@@ -1,14 +1,14 @@
 CC := clang++
 CCFLAGS := -std=c++2a -Wall -Wextra -Wpedantic
+CCF := $(CC) $(CCFLAGS)
 
 TARGET := target
 
-$(TARGET)/representation: tasks/representation/main.cc $(TARGET)
-	$(CC) $(CCFLAGS) -o $@ $<
+$(shell mkdir -p $(TARGET))
 
-$(TARGET):
-	mkdir -p $@
+$(TARGET)/representation: tasks/representation/main.cc
+	$(CCF) -o $@ $^
 
 .PHONY: clear
 clean:
-	rm -rf main target
+	rm -rf target
