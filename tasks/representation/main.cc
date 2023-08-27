@@ -1,102 +1,175 @@
 #include <fstream>
 #include <iostream>
+#include <iterator>
+#include <ostream>
+#include <ranges>
 #include <span>
+#include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
-class AdjacencyMatrixDigraph {
-   private:
-    std::vector<bool> _m;
-    size_t _node_count;
-    size_t _edge_count;
+class Edge {
+   public:
+    uint32_t orig;
+    uint32_t dest;
 
-    inline auto set(size_t i, size_t j, bool val) -> void {
-        _m.at(i * _node_count + j) = val;
+    Edge(uint32_t orig, uint32_t dest) : orig(orig), dest(dest) {
+        if (!orig || !dest) {
+            throw std::invalid_argument("vertex 0 is not valid");
+        }
     }
 
-    inline auto get(size_t i, size_t j) const -> bool {
-        return _m.at(i * _node_count + j);
+    bool lt_by_orig(const Edge &other) const {
+        return (orig != other.orig) ? orig < other.orig : dest < other.dest;
+    }
+
+    bool lt_by_dest(const Edge &other) const {
+        return (dest != other.dest) ? dest < other.dest : orig < other.orig;
+    }
+};
+
+class EdgeBag {
+    friend class ForwardStarDigraph;
+
+   private:
+    std::vector<Edge> edges;
+
+    void sort_by_orig() {
+        std::sort(edges.begin(), edges.end(), [](auto &left, auto &right) {
+            return left.lt_by_orig(right);
+        });
+    }
+
+    void sort_by_dest() {
+        std::sort(edges.begin(), edges.end(), [](auto &left, auto &right) {
+            return left.lt_by_dest(right);
+        });
     }
 
    public:
-    AdjacencyMatrixDigraph(size_t node_count)
-        : _m(node_count * node_count, false),
-          _node_count(node_count),
-          _edge_count(0) {
+    EdgeBag(uint32_t edge_size_hint) {
+        edges.reserve(edge_size_hint);
     }
 
-    auto add(size_t orig, size_t dest) -> void {
-        _edge_count++;
-        set(orig, dest, true);
+    void add(Edge e) {
+        edges.push_back(e);
     }
 
-    auto edge_count() const -> size_t {
-        return _edge_count;
+    size_t size() const {
+        return edges.size();
     }
 
-    auto greatest_outdegree() const -> size_t {
-        size_t max   = 0;
-        size_t max_i = 0;
-        for (size_t i = 0; i < _node_count; i++) {
-            auto lo          = _m.begin() + i * _node_count;
-            auto hi          = lo + _node_count;
-            size_t out_count = 0;
-            for (auto p = lo; p < hi; p++) {
-                if (*p) out_count++;
-            }
-            if (out_count > max) {
-                max   = out_count;
-                max_i = i;
-            }
-        }
-        return max_i;
+    auto begin() const {
+        return edges.begin();
     }
 
-    auto successors(size_t node_i) const -> std::vector<size_t> {
-        std::vector<size_t> v;
-        size_t lo = node_i * _node_count;
-        size_t hi = lo + _node_count;
-        for (auto x = lo; x < hi; x++) {
-            if (_m.at(x)) v.push_back(x % _node_count);
-        }
-        return v;
-    }
-
-    auto greatest_indegree() const -> size_t {
-        size_t max   = 0;
-        size_t max_i = 0;
-        for (size_t i = 0; i < _node_count; i++) {
-            auto lo          = _m.begin() + i * _node_count;
-            auto hi          = lo + _node_count;
-            size_t out_count = 0;
-            for (auto p = lo; p < hi; p++) {
-                if (*p) out_count++;
-            }
-            if (out_count > max) {
-                max   = out_count;
-                max_i = i;
-            }
-        }
-        return max_i;
-    }
-
-    auto dbg() const -> void {
-        std::cerr << "\t";
-        for (size_t i = 0; i < _node_count; i++) {
-            std::cerr << i << ":\t";
-        }
-        std::cerr << "\n";
-        for (size_t i = 0; i < _node_count; i++) {
-            auto lo = _m.begin() + i * _node_count;
-            auto hi = lo + _node_count;
-            std::cerr << i << ":\t";
-            for (auto p = lo; p < hi; p++) {
-                std::cerr << (*p ? 1 : 0) << "\t";
-            }
-            std::cerr << "\n";
-        }
+    auto end() const {
+        return edges.end();
     }
 };
+
+template <typename G>
+class NeighborsIterable {
+    friend class ForwardStarDigraph;
+
+   private:
+    const G &g;
+    uint32_t _start;
+    uint32_t _end;
+
+    NeighborsIterable(G &g, uint32_t start, uint32_t end)
+        : g(g), _start(start), _end(end) {
+    }
+
+   public:
+    auto begin() {
+        return g.edges.begin() + _start;
+    }
+
+    auto end() {
+        return g.edges.begin() + _end;
+    }
+};
+
+class ForwardStarDigraph {
+    friend class NeighborsIterable<ForwardStarDigraph>;
+
+   private:
+    std::vector<uint32_t> ptrs;
+    std::vector<uint32_t> edges;
+
+   public:
+    ForwardStarDigraph(uint32_t vertex_size_hint, EdgeBag &edge_bag) {
+        // first element is unused; last element is used as sentinel
+        ptrs.reserve(vertex_size_hint + 2);
+        ptrs.push_back(0);
+        // first element is unused
+        edges.reserve(edge_bag.edges.size() + 1);
+        edges.push_back(0);
+
+        edge_bag.sort_by_orig();
+        uint32_t last_orig = 0;
+        for (Edge e : edge_bag) {
+            if (last_orig != e.orig) {
+                last_orig = e.orig;
+                ptrs.push_back(edges.size());
+            }
+            edges.push_back(e.dest);
+        }
+        // last `ptrs`, the sentinel
+        ptrs.push_back(edges.size());
+    }
+
+    ForwardStarDigraph(EdgeBag &edge_bag)
+        // Probably a high guess for the vertex size hint, but should avoid many
+        // reallocations, which is better for performance.
+        : ForwardStarDigraph(edge_bag.edges.size() / 10, edge_bag) {
+    }
+
+    // Returns an iterable over all the vertexes.
+    auto vertexes() {
+        return std::views::iota(1u, ptrs.size() - 1);
+    }
+
+    // Returns an iterable over the sucessor vertex for the given vertex.
+    NeighborsIterable<ForwardStarDigraph> successors(uint32_t vertex) {
+        return NeighborsIterable(*this, ptrs.at(vertex), ptrs.at(vertex + 1));
+    }
+
+    // Returns the outgoing degree for the given vertex.
+    uint32_t outgoing_deg(uint32_t vertex) {
+        NeighborsIterable<ForwardStarDigraph> it = successors(vertex);
+        return std::distance(it.begin(), it.end());
+    }
+
+    void dbg(std::ostream &sink) {
+        sink << "orig_ptrs: ";
+        for (auto v : ptrs) sink << v << " ";
+        sink << "\n";
+        sink << " arc_dest: ";
+        for (auto v : edges) sink << v << " ";
+        sink << "\n";
+    }
+};
+
+struct vertex_degree {
+    uint32_t vertex;
+    uint32_t degree;
+};
+
+vertex_degree max_vertex_degree(ForwardStarDigraph &g) {
+    uint32_t max_out_deg   = 0;
+    uint32_t max_out_deg_v = 0;
+    for (uint32_t v : g.vertexes()) {
+        uint32_t out_deg = g.outgoing_deg(v);
+        if (out_deg > max_out_deg) {
+            max_out_deg_v = v;
+            max_out_deg   = out_deg;
+        }
+    }
+    return {.vertex = max_out_deg_v, .degree = max_out_deg};
+}
 
 auto main(int argc, char **argv) -> int {
     if (argc < 2) {
@@ -105,44 +178,45 @@ auto main(int argc, char **argv) -> int {
     }
     std::string_view file_name(argv[1]);
 
+    bool debug = argc == 3 && std::string_view(argv[2]) == "--debug";
+    if (debug) std::cerr << "(debug mode is on)\n";
+
     std::ifstream input(file_name);
     if (!input.is_open()) {
-        std::cerr << "error: file `" << file_name << "` couldn't be opened\n";
+        std::cerr << "error: failed to open file `" << file_name << "`\n";
         return 1;
     }
 
-    size_t node_count = 0;
-    size_t edge_count = 0;
-    input >> node_count >> edge_count;
-    std::cerr << "dbg: got (node_count " << node_count << ") and (edge_count "
-              << edge_count << ")\n";
+    uint32_t vertex_count = 0;
+    uint32_t edge_count   = 0;
+    input >> vertex_count >> edge_count;
+    if (debug)
+        std::cerr << "got (vertex_count " << vertex_count
+                  << ") and (edge_count " << edge_count << ")\n";
 
-    // +1 since we don't start in zero.
-    AdjacencyMatrixDigraph graph(node_count + 1);
-
-    size_t orig = 0;
-    size_t dest = 0;
-    while (input >> orig >> dest) {
-        // std::cerr << "dbg: got (orig " << orig << ") (dest " << dest << ")"
-        //           << std::endl;
-        graph.add(orig, dest);
+    EdgeBag edge_bag(edge_count);
+    uint32_t e_orig = 0;
+    uint32_t e_dest = 0;
+    while (input >> e_orig >> e_dest) {
+        edge_bag.add(Edge(e_orig, e_dest));
     }
     // sanity check
-    auto actual_ec = graph.edge_count();
-    if (edge_count != actual_ec) {
-        std::cerr << "error: expected " << edge_count << " edges but found "
-                  << actual_ec << "\n";
+    if (edge_bag.size() != edge_count) {
+        std::cerr << "invalid edge count, expected " << edge_count << ", got "
+                  << edge_bag.size() << "\n";
         return 1;
     }
 
-    // graph.dbg();
+    ForwardStarDigraph g(edge_count, edge_bag);
+    if (debug) g.dbg(std::cerr);
 
-    size_t go = graph.greatest_outdegree();
-    std::cout << "node with greatest outdegree: " << go << ".\n";
-    auto succ = graph.successors(go);
-    std::cout << "  " << succ.size() << " successors are:\n  ";
-    for (auto s : succ) {
-        std::cout << s << ", ";
+    // get first vertex with greatest outgoing degree
+    auto max_outgoing = max_vertex_degree(g);
+    std::cout << "maximum outgoing degree is (" << max_outgoing.degree
+              << "), first for vertex (" << max_outgoing.vertex << ")\n";
+    std::cout << "its successors are:\n";
+    for (uint32_t v : g.successors(max_outgoing.vertex)) {
+        std::cout << v << ", ";
     }
     std::cout << "\n";
 
