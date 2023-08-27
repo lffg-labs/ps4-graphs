@@ -106,6 +106,11 @@ class NeighborsIterable {
     }
 };
 
+struct vertex_degree {
+    uint32_t vertex;
+    uint32_t degree;
+};
+
 class ForwardStarDigraph {
     friend class NeighborsIterable<ForwardStarDigraph>;
 
@@ -115,7 +120,7 @@ class ForwardStarDigraph {
 
    public:
     ForwardStarDigraph(uint32_t vertex_size_hint, EdgeBag &edge_bag) {
-        size_t ptrs_size = vertex_size_hint + 2;
+        const size_t ptrs_size = vertex_size_hint + 2;
         // first element is unused; last element is used as sentinel
         ptrs.reserve(ptrs_size);
         ptrs.push_back(0);
@@ -164,6 +169,19 @@ class ForwardStarDigraph {
         return std::distance(it.begin(), it.end());
     }
 
+    auto max_outdegree() -> vertex_degree {
+        uint32_t max_outdeg = 0;
+        uint32_t max_v      = 0;
+        for (const uint32_t v : vertexes()) {
+            const uint32_t outdeg = outdegree(v);
+            if (outdeg > max_outdeg) {
+                max_v      = v;
+                max_outdeg = outdeg;
+            }
+        }
+        return {.vertex = max_v, .degree = max_outdeg};
+    }
+
     void dbg(std::ostream &sink) {
         sink << "orig_ptrs: ";
         for (auto v : ptrs) sink << v << " ";
@@ -171,6 +189,17 @@ class ForwardStarDigraph {
         sink << " arc_dest: ";
         for (auto v : edges) sink << v << " ";
         sink << "\n";
+    }
+
+    auto dot(std::ostream &sink) {
+        sink << "digraph G {\n";
+        for (const uint32_t orig : vertexes()) {
+            for (const uint32_t dest : successors(orig)) {
+                sink << "    " << orig << " -> " << dest << "\n";
+            }
+            sink << "\n";
+        }
+        sink << "}\n";
     }
 };
 
@@ -183,7 +212,7 @@ class ReverseStarDigraph {
 
    public:
     ReverseStarDigraph(uint32_t vertex_size_hint, EdgeBag &edge_bag) {
-        size_t ptrs_size = vertex_size_hint + 2;
+        const size_t ptrs_size = vertex_size_hint + 2;
         // first element is unused; last element is used as sentinel
         ptrs.reserve(ptrs_size);
         ptrs.push_back(0);
@@ -233,6 +262,19 @@ class ReverseStarDigraph {
         return std::distance(it.begin(), it.end());
     }
 
+    auto max_indegree() -> vertex_degree {
+        uint32_t max_indeg = 0;
+        uint32_t max_v     = 0;
+        for (const uint32_t v : vertexes()) {
+            const uint32_t indeg = indegree(v);
+            if (indeg > max_indeg) {
+                max_v     = v;
+                max_indeg = indeg;
+            }
+        }
+        return {.vertex = max_v, .degree = max_indeg};
+    }
+
     void dbg(std::ostream &sink) {
         sink << "dest_ptrs: ";
         for (auto v : ptrs) sink << v << " ";
@@ -241,60 +283,18 @@ class ReverseStarDigraph {
         for (auto v : edges) sink << v << " ";
         sink << "\n";
     }
+
+    auto dot(std::ostream &sink) {
+        sink << "digraph G {\n";
+        for (const uint32_t dest : vertexes()) {
+            for (const uint32_t orig : predecessors(dest)) {
+                sink << "    " << orig << " -> " << dest << "\n";
+            }
+            sink << "\n";
+        }
+        sink << "}\n";
+    }
 };
-
-struct vertex_degree {
-    uint32_t vertex;
-    uint32_t degree;
-};
-
-auto max_degree(ForwardStarDigraph &g) -> vertex_degree {
-    uint32_t max_outdeg = 0;
-    uint32_t max_v      = 0;
-    for (const uint32_t v : g.vertexes()) {
-        const uint32_t outdeg = g.outdegree(v);
-        if (outdeg > max_outdeg) {
-            max_v      = v;
-            max_outdeg = outdeg;
-        }
-    }
-    return {.vertex = max_v, .degree = max_outdeg};
-}
-
-auto max_degree(ReverseStarDigraph &g) -> vertex_degree {
-    uint32_t max_indeg = 0;
-    uint32_t max_v     = 0;
-    for (const uint32_t v : g.vertexes()) {
-        const uint32_t indeg = g.indegree(v);
-        if (indeg > max_indeg) {
-            max_v     = v;
-            max_indeg = indeg;
-        }
-    }
-    return {.vertex = max_v, .degree = max_indeg};
-}
-
-auto dot(ForwardStarDigraph &g, std::ostream &sink) {
-    sink << "digraph G {\n";
-    for (const uint32_t orig : g.vertexes()) {
-        for (const uint32_t dest : g.successors(orig)) {
-            sink << "    " << orig << " -> " << dest << "\n";
-        }
-        sink << "\n";
-    }
-    sink << "}\n";
-}
-
-auto dot(ReverseStarDigraph &g, std::ostream &sink) {
-    sink << "digraph G {\n";
-    for (const uint32_t dest : g.vertexes()) {
-        for (const uint32_t orig : g.predecessors(dest)) {
-            sink << "    " << orig << " -> " << dest << "\n";
-        }
-        sink << "\n";
-    }
-    sink << "}\n";
-}
 
 auto main(int argc, char **argv) -> int {
     if (argc < 2) {
@@ -354,10 +354,10 @@ auto main(int argc, char **argv) -> int {
     {
         ForwardStarDigraph g(vertex_count, edge_bag);
         if (debug_mode) g.dbg(std::cerr);
-        if (dot_mode) dot(g, std::cerr);
+        if (dot_mode) g.dot(std::cerr);
 
         // get first vertex with greatest outdegree
-        auto max_out = max_degree(g);
+        auto max_out = g.max_outdegree();
         std::cout << "maximum outdegree is (" << max_out.degree
                   << "), first for vertex (" << max_out.vertex << ")\n";
         std::cout << "its successors are:\n";
@@ -371,10 +371,10 @@ auto main(int argc, char **argv) -> int {
     {
         ReverseStarDigraph g(vertex_count, edge_bag);
         if (debug_mode) g.dbg(std::cerr);
-        if (dot_mode) dot(g, std::cerr);
+        if (dot_mode) g.dot(std::cerr);
 
-        // get first vertex with greatest outdegree
-        auto max_in = max_degree(g);
+        // get first vertex with greatest indegree
+        auto max_in = g.max_indegree();
         std::cout << "maximum indegree is (" << max_in.degree
                   << "), first for vertex (" << max_in.vertex << ")\n";
         std::cout << "its predecessors are:\n";
