@@ -126,8 +126,10 @@ class ForwardStarDigraph {
         edge_bag.sort_by_orig();  // <------------ each ptr is a orig
         uint32_t last_orig = 0;
         for (const Edge e : edge_bag) {
-            if (last_orig != e.orig) {
-                last_orig = e.orig;
+            // insert the new orig ptr while also avoiding holes due to vertexes
+            // without any successors
+            while (last_orig < e.orig) {
+                last_orig++;
                 ptrs.push_back(edges.size());
             }
             SANITY_CHECK_VECTOR_GROWTH(edges, "ForwardStarDigraph::edges");
@@ -181,8 +183,9 @@ class ReverseStarDigraph {
 
    public:
     ReverseStarDigraph(uint32_t vertex_size_hint, EdgeBag &edge_bag) {
+        size_t ptrs_size = vertex_size_hint + 2;
         // first element is unused; last element is used as sentinel
-        ptrs.reserve(vertex_size_hint + 2);
+        ptrs.reserve(ptrs_size);
         ptrs.push_back(0);
         // first element is unused
         edges.reserve(edge_bag.edges.size() + 1);
@@ -200,8 +203,10 @@ class ReverseStarDigraph {
             SANITY_CHECK_VECTOR_GROWTH(edges, "ReverseStarDigraph::edges");
             edges.push_back(e.orig);
         }
-        SANITY_CHECK_VECTOR_GROWTH(ptrs, "ReverseStarDigraph::ptrs");
-        ptrs.push_back(edges.size());
+        while (ptrs.size() < ptrs_size) {
+            SANITY_CHECK_VECTOR_GROWTH(ptrs, "ReverseStarDigraph::ptrs");
+            ptrs.push_back(edges.size());
+        }
     }
 
     ReverseStarDigraph(EdgeBag &edge_bag)
