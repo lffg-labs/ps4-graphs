@@ -9,6 +9,15 @@
 #include <utility>
 #include <vector>
 
+#ifdef SANITY_CHECK
+#define SANITY_CHECK_VECTOR_GROWTH(ident, description)                 \
+    if (ident.size() == ident.capacity()) {                            \
+        std::cerr << "sanity: will realloc (" << description << ")\n"; \
+    }
+#else
+#define SANITY_CHECK_VECTOR_GROWTH(ident, description)
+#endif
+
 const uint32_t VERTEX_TO_EDGE_FACTOR = 10;
 
 class Edge {
@@ -55,6 +64,7 @@ class EdgeBag {
     }
 
     void add(Edge e) {
+        SANITY_CHECK_VECTOR_GROWTH(edges, "edges");
         edges.push_back(e);
     }
 
@@ -117,9 +127,10 @@ class ForwardStarDigraph {
                 last_orig = e.orig;
                 ptrs.push_back(edges.size());
             }
+            SANITY_CHECK_VECTOR_GROWTH(edges, "ForwardStarDigraph::edges");
             edges.push_back(e.dest);
         }
-        // last `ptrs`, the sentinel
+        SANITY_CHECK_VECTOR_GROWTH(ptrs, "ForwardStarDigraph::ptrs");
         ptrs.push_back(edges.size());
     }
 
@@ -182,6 +193,9 @@ auto main(int argc, char **argv) -> int {
     const std::string_view file_name(argv[1]);
 
     const bool debug = argc == 3 && std::string_view(argv[2]) == "--debug";
+#ifdef SANITY_CHECK
+    std::cerr << "(sanity check mode is on)\n";
+#endif
     if (debug) std::cerr << "(debug mode is on)\n";
 
     std::ifstream input(file_name);

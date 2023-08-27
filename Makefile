@@ -2,12 +2,17 @@ CC := clang++
 CCFLAGS := -std=c++2a -Wall -Wextra -Wpedantic
 
 RELEASE := 0
+SANITY_CHECK := 0
 
 ifeq ($(RELEASE),0)
 TARGET := target/debug
 else
 TARGET := target/release
 CCFLAGS += -O3
+endif
+
+ifneq ($(SANITY_CHECK),0)
+CCFLAGS += -DSANITY_CHECK
 endif
 
 CCF := $(CC) $(CCFLAGS)
