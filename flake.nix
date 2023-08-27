@@ -31,7 +31,7 @@
             name = "clang-tidy";
             extra-args =
               if stdenv.isDarwin
-              then "-- -I${pkgs.darwin.Libsystem}"
+              then "-- -std=c++20 -I${pkgs.darwin.Libsystem}"
               else "";
           })
           (clang-tool {name = "clang-format";})
