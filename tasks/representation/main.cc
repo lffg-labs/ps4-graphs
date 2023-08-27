@@ -151,8 +151,8 @@ class ForwardStarDigraph {
         return NeighborsIterable(*this, ptrs.at(vertex), ptrs.at(vertex + 1));
     }
 
-    // Returns the outgoing degree for the given vertex.
-    auto outgoing_deg(uint32_t vertex) -> uint32_t {
+    // Returns the outdegree for the given vertex.
+    auto outdegree(uint32_t vertex) -> uint32_t {
         NeighborsIterable<ForwardStarDigraph> it = successors(vertex);
         return std::distance(it.begin(), it.end());
     }
@@ -173,16 +173,16 @@ struct vertex_degree {
 };
 
 auto max_vertex_degree(ForwardStarDigraph &g) -> vertex_degree {
-    uint32_t max_out_deg   = 0;
-    uint32_t max_out_deg_v = 0;
+    uint32_t max_outdeg = 0;
+    uint32_t max_v      = 0;
     for (const uint32_t v : g.vertexes()) {
-        const uint32_t out_deg = g.outgoing_deg(v);
-        if (out_deg > max_out_deg) {
-            max_out_deg_v = v;
-            max_out_deg   = out_deg;
+        const uint32_t outdeg = g.outdegree(v);
+        if (outdeg > max_outdeg) {
+            max_v      = v;
+            max_outdeg = outdeg;
         }
     }
-    return {.vertex = max_out_deg_v, .degree = max_out_deg};
+    return {.vertex = max_v, .degree = max_outdeg};
 }
 
 auto main(int argc, char **argv) -> int {
@@ -224,18 +224,21 @@ auto main(int argc, char **argv) -> int {
         return 1;
     }
 
-    ForwardStarDigraph g(edge_count, edge_bag);
-    if (debug) g.dbg(std::cerr);
+    // outdegree
+    {
+        ForwardStarDigraph g(edge_count, edge_bag);
+        if (debug) g.dbg(std::cerr);
 
-    // get first vertex with greatest outgoing degree
-    auto max_outgoing = max_vertex_degree(g);
-    std::cout << "maximum outgoing degree is (" << max_outgoing.degree
-              << "), first for vertex (" << max_outgoing.vertex << ")\n";
-    std::cout << "its successors are:\n";
-    for (const uint32_t v : g.successors(max_outgoing.vertex)) {
-        std::cout << v << ", ";
+        // get first vertex with greatest outdegree
+        auto max_out = max_vertex_degree(g);
+        std::cout << "maximum outdegree is (" << max_out.degree
+                  << "), first for vertex (" << max_out.vertex << ")\n";
+        std::cout << "its successors are:\n";
+        for (const uint32_t v : g.successors(max_out.vertex)) {
+            std::cout << v << ", ";
+        }
+        std::cout << "\n";
     }
-    std::cout << "\n";
 
     return 0;
 }
