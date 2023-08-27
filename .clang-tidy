@@ -11,7 +11,10 @@ Checks: >
     -bugprone-easily-swappable-parameters,
     -readability-identifier-length,
     -readability-suspicious-call-argument,
-    -misc-no-recursion
+    -misc-no-recursion,
+    -readability-braces-around-statements,
+    -modernize-return-braced-init-list,
+    -bugprone-exception-escape,
 
 CheckOptions:
   misc-const-correctness.WarnPointersAsValues: true
