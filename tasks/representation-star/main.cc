@@ -9,6 +9,9 @@
 #include <utility>
 #include <vector>
 
+// XX: I should probably just use an array (perhaps wrapped by an owned_ptr) to
+// avoid any kind of size checks. It won't be a small change since I'd have to
+// also ditch vector's iterators in favor of my own implementation.
 #ifdef SANITY_CHECK
 #define SANITY_CHECK_VECTOR_GROWTH(ident, description)                 \
     if (ident.size() == ident.capacity()) {                            \
@@ -17,8 +20,6 @@
 #else
 #define SANITY_CHECK_VECTOR_GROWTH(ident, description)
 #endif
-
-const uint32_t VERTEX_TO_EDGE_FACTOR = 10;
 
 class Edge {
    public:
@@ -60,8 +61,8 @@ class EdgeBag {
     }
 
    public:
-    EdgeBag(uint32_t edge_size_hint) {
-        edges.reserve(edge_size_hint);
+    EdgeBag(uint32_t size) {
+        edges.reserve(size);
     }
 
     void add(Edge e) {
@@ -119,8 +120,8 @@ class ForwardStarDigraph {
     std::vector<uint32_t> edges;
 
    public:
-    ForwardStarDigraph(uint32_t vertex_size_hint, EdgeBag &edge_bag) {
-        const size_t ptrs_size = vertex_size_hint + 2;
+    ForwardStarDigraph(uint32_t vertex_count, EdgeBag &edge_bag) {
+        const size_t ptrs_size = vertex_count + 2;
         // first element is unused; last element is used as sentinel
         ptrs.reserve(ptrs_size);
         ptrs.push_back(0);
@@ -144,13 +145,6 @@ class ForwardStarDigraph {
             SANITY_CHECK_VECTOR_GROWTH(ptrs, "ForwardStarDigraph::ptrs");
             ptrs.push_back(edges.size());
         }
-    }
-
-    ForwardStarDigraph(EdgeBag &edge_bag)
-        // Probably a high guess for the vertex size hint, but should avoid many
-        // reallocations, which is better for performance.
-        : ForwardStarDigraph(edge_bag.edges.size() / VERTEX_TO_EDGE_FACTOR,
-                             edge_bag) {
     }
 
     // Returns an iterable over all the vertexes.
@@ -211,8 +205,8 @@ class ReverseStarDigraph {
     std::vector<uint32_t> edges;
 
    public:
-    ReverseStarDigraph(uint32_t vertex_size_hint, EdgeBag &edge_bag) {
-        const size_t ptrs_size = vertex_size_hint + 2;
+    ReverseStarDigraph(uint32_t vertex_count, EdgeBag &edge_bag) {
+        const size_t ptrs_size = vertex_count + 2;
         // first element is unused; last element is used as sentinel
         ptrs.reserve(ptrs_size);
         ptrs.push_back(0);
@@ -236,13 +230,6 @@ class ReverseStarDigraph {
             SANITY_CHECK_VECTOR_GROWTH(ptrs, "ReverseStarDigraph::ptrs");
             ptrs.push_back(edges.size());
         }
-    }
-
-    ReverseStarDigraph(EdgeBag &edge_bag)
-        // Probably a high guess for the vertex size hint, but should avoid many
-        // reallocations, which is better for performance.
-        : ReverseStarDigraph(edge_bag.edges.size() / VERTEX_TO_EDGE_FACTOR,
-                             edge_bag) {
     }
 
     // Returns an iterable over all the vertexes.
