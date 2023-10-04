@@ -147,6 +147,13 @@ class ForwardStarDigraph {
         }
     }
 
+    // Returns the number of vertexes in the graph.
+    auto vertexes_count() {
+        // There are two extra elements (0, the first element and a sentinel at
+        // the end).
+        return ptrs.size() - 2;
+    }
+
     // Returns an iterable over all the vertexes.
     auto vertexes() {
         return std::views::iota(1U, ptrs.size() - 1);

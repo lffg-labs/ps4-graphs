@@ -28,6 +28,7 @@ all: $(patsubst %,$(TARGET)/%,$(SRCS))
 
 # maybe-todo: https://stackoverflow.com/a/11441134
 $(TARGET)/representation-star: tasks/representation-star/main.cc
+$(TARGET)/depth-search: tasks/depth-search/main.cc
 	$(CCF) -o $@ $^
 
 # build-% utility
