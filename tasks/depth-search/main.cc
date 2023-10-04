@@ -1,11 +1,11 @@
-#include <stdint.h>
-
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <ostream>
 #include <stack>
 #include <string>
 
+// XX: Make a library.
 #include "../representation-star/lib.cc"
 
 using NodeId = uint32_t;
@@ -17,8 +17,8 @@ enum class digraph_edge_classification : uint8_t {
     cross,
 };
 
-std::ostream &operator<<(std::ostream &sink,
-                         const digraph_edge_classification &ec) {
+auto operator<<(std::ostream &sink, const digraph_edge_classification &ec)
+    -> std::ostream & {
     switch (ec) {
         case digraph_edge_classification::tree:
             sink << "tree";
@@ -69,27 +69,26 @@ class dfs_result {
         -> digraph_edge_classification {
         auto &orig_e = at_v(orig);
         auto &dest_e = at_v(dest);
+
         if (orig_e.discovery_t < dest_e.discovery_t) {
             if (dest_e.parent == orig) {
                 return digraph_edge_classification::tree;
-            } else {
-                return digraph_edge_classification::forward;
             }
-        } else {
-            if (dest_e.term_t < orig_e.discovery_t) {
-                return digraph_edge_classification::forward;
-            } else {
-                return digraph_edge_classification::back;
-            }
+            return digraph_edge_classification::forward;
         }
+
+        if (dest_e.term_t < orig_e.discovery_t) {
+            return digraph_edge_classification::forward;
+        }
+        return digraph_edge_classification::back;
     }
 };
 
 using EdgeVisitor   = std::function<void(NodeId, NodeId)>;
 using VertexVisitor = std::function<void(NodeId)>;
 
-static VertexVisitor NOOP_VERTEX_VISITOR = [](NodeId v) { (void)v; };
-static EdgeVisitor NOOP_EDGE_VISITOR     = [](NodeId o, NodeId d) {
+VertexVisitor NOOP_VERTEX_VISITOR = [](NodeId v) { (void)v; };
+EdgeVisitor NOOP_EDGE_VISITOR     = [](NodeId o, NodeId d) {
     (void)o;
     (void)d;
 };
@@ -102,8 +101,7 @@ class dfs {
     EdgeVisitor cross_edge_visitor   = NOOP_EDGE_VISITOR;
     VertexVisitor vertex_visitor     = NOOP_VERTEX_VISITOR;
 
-    dfs() {
-    }
+    dfs() = default;
 
     auto execute(ForwardStarDigraph &g) -> dfs_result {
         dfs_result res(g.vertexes_count());
@@ -113,9 +111,9 @@ class dfs {
         std::stack<NodeId> st;
 
         auto it = g.vertexes();
-        for (NodeId v : it) {
+        for (const NodeId v : it) {
             // Skip if we find a vertex which is not yet discovered.
-            if (res.at_v(v).discovery_t) continue;
+            if (res.at_v(v).discovery_t != 0U) continue;
 
 #ifdef SANITY_CHECK
             // Sanity check: assert that the stack is empty.
@@ -129,15 +127,15 @@ class dfs {
     }
 
    private:
-    void dfs_v(ForwardStarDigraph &g, std::stack<NodeId> st, uint64_t time,
-               dfs_result &res, NodeId starting_vertex) {
+    void dfs_v(ForwardStarDigraph &g, std::stack<NodeId> &st, uint64_t &time,
+               dfs_result &res, NodeId starting_vertex) const {
         st.push(starting_vertex);
 
     st_loop:
         while (!st.empty()) {
             // Notice that we don't yet remove the vertex from the stack; we do
             // so only after all of its children are processed.
-            NodeId v           = st.top();
+            const NodeId v     = st.top();
             dfs_entry &v_entry = res.at_v(v);
 
             // Registers the current vertex as discovered.
@@ -147,7 +145,7 @@ class dfs {
                 vertex_visitor(v);
             }
 
-            for (NodeId succ_v : g.successors(v)) {
+            for (const NodeId succ_v : g.successors(v)) {
                 dfs_entry &succ_entry = res.at_v(succ_v);
 
                 // We have just discovered `succ_v`.
@@ -192,7 +190,7 @@ class dfs {
 auto classify_outgoing_edges(std::ostream &sink, ForwardStarDigraph &g,
                              dfs_result &res, NodeId v) {
     sink << "classification of the outgoing edges of vertex (" << v << ")\n";
-    for (NodeId dest : g.successors(v)) {
+    for (const NodeId dest : g.successors(v)) {
         sink << "  (" << v << " -> " << dest << ") is a "
              << res.classify_edge(v, dest) << " edge\n";
     }
@@ -210,10 +208,11 @@ auto main(int argc, char **argv) -> int {
     }
     const std::string_view file_name(argv[1]);
 
-    std::string vertex_to_classify_opt = std::string(argv[2]);
-    int64_t vertex_to_classify         = vertex_to_classify_opt == "ALL"
-                                             ? -1
-                                             : std::stoul(vertex_to_classify_opt);
+    const std::string vertex_to_classify_opt = std::string(argv[2]);
+    const int64_t vertex_to_classify =
+        vertex_to_classify_opt == "ALL"
+            ? -1L
+            : static_cast<NodeId>(std::stoul(vertex_to_classify_opt));
 
     bool debug_mode = false;
     bool dot_mode   = false;
@@ -277,7 +276,7 @@ auto main(int argc, char **argv) -> int {
     // We could also have used the visitor APIs to implement this
     // classification. However, this seemed more appropriate for this use-case.
     if (vertex_to_classify == -1) /* all */ {
-        for (NodeId v : g.vertexes()) {
+        for (const NodeId v : g.vertexes()) {
             classify_outgoing_edges(std::cout, g, dfs_res, v);
         }
     } else {
